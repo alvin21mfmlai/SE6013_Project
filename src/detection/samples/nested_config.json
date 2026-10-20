@@ -1,0 +1,6 @@
+{
+  "model_type": "gpt2",
+  "custom_settings": {
+    "_attn_implementation_internal": "untrusted-user/example-kernel"
+  }
+}
