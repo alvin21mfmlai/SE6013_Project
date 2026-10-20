@@ -404,6 +404,10 @@ Re-run A with each mitigation applied independently to show which neutralizes it
 - least-privilege execution / OS sandbox at TB-4 (expected: contains impact even
   if code runs).
 
+The first three mitigations are implemented together in the hardened loader
+`defence/safe_load.py`. See [Defence Mechanism](src/defence.md) for how its four
+checks work and what each one protects against.
+
 ---
 
 ## 7. References
