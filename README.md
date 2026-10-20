@@ -11,8 +11,6 @@
 3. [Threat model](#3-threat-model)
 4. [Root cause](#4-root-cause)
 5. [Defence](#5-defence)
-6. [Defensive simulation](#6-defensive-simulation)
-7. [References](#7-references)
 
 ---
 
