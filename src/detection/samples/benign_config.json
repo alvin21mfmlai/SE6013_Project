@@ -1,0 +1,7 @@
+{
+  "model_type": "gpt2",
+  "architectures": ["GPT2LMHeadModel"],
+  "n_embd": 768,
+  "n_layer": 12,
+  "n_head": 12
+}

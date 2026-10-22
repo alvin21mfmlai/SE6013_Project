@@ -1,0 +1,5 @@
+{
+  "model_type": "gpt2",
+  "architectures": ["GPT2LMHeadModel"],
+  "_attn_implementation_internal": "untrusted-user/example-kernel"
+}
