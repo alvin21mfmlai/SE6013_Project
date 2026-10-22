@@ -11,6 +11,7 @@
 3. [Threat model](#3-threat-model)
 4. [Root cause](#4-root-cause)
 5. [Defence](#5-defence)
+6. [Detection](#6-detection)
 
 ---
 
@@ -164,3 +165,164 @@ warnings, a person can override check 3 with `accept_findings=True`.
 
 **Limitation:** check 3 only knows the settings listed above, so it cannot catch a new
 attack. Upgrading to `transformers>=5.3.0` is the only complete fix.
+
+---
+
+## 6. Detection
+
+The detection component identifies potentially unsafe Hugging Face model configurations and vulnerable dependencies associated with CVE-2026-4372. It provides two independent detection mechanisms: **static configuration scanning** and **dependency analysis**.
+
+Unlike the Defence component, these tools report potential security risks without loading models or executing untrusted code.
+
+### 6.1 Static Configuration Detection
+
+**File:** `src/detection/static_detector.py`
+
+The static detector parses `config.json` files and recursively examines nested JSON objects and arrays for security-sensitive fields.
+
+The following fields are monitored:
+
+| Configuration Field | Detection Purpose |
+|---|---|
+| `_attn_implementation_internal` | Internal attention configuration field associated with CVE-2026-4372 |
+| `_experts_implementation_internal` | Additional internal implementation field requiring review |
+| `auto_map` | May reference custom model implementation code |
+| `custom_pipelines` | May reference custom pipeline implementations |
+
+**Usage:**
+
+```bash
+cd src/detection
+python3 static_detector.py samples/suspicious_config.json
+```
+
+**Example output:**
+
+```text
+[WARNING] samples/suspicious_config.json: review field '_attn_implementation_internal'
+```
+
+**Exit codes:**
+
+| Exit Code | Meaning |
+|---|---|
+| `0` | PASS — No monitored fields detected |
+| `1` | WARNING — One or more monitored fields detected |
+| `2` | ERROR — Invalid JSON, missing file, or processing error |
+
+The presence of a monitored field does not necessarily indicate exploitation. Findings require further investigation.
+
+### 6.2 Dependency Detection
+
+**File:** `src/detection/dependency_detector.py`
+
+The dependency detector examines the Python environment to identify:
+
+- Installed Hugging Face Transformers version
+- Installed `kernels` package version, if available
+- Whether the optional `kernels` package is importable
+- Whether the Transformers version falls within the documented affected range
+
+**Usage:**
+
+```bash
+cd src/detection
+python3 -m pip install packaging
+python3 dependency_detector.py
+```
+
+**Example output for a simulated vulnerable environment:**
+
+```text
+=== CVE-2026-4372 Dependency Detection ===
+Transformers version: 5.2.0
+Kernels version: Not installed
+Kernels import available: False
+[WARNING] Vulnerable Transformers version detected.
+[INFO] The optional kernels package is not available.
+[ACTION] Upgrade Transformers to 5.3.0 or newer.
+```
+
+The detector performs read-only checks and does not install or execute vulnerable Transformers versions.
+
+### 6.3 Dependency Vulnerability Auditing
+
+The `pip-audit` tool was used to compare published security advisories for vulnerable and patched Transformers versions.
+
+**Files:**
+
+- `requirements-vulnerable.txt` — Transformers 5.2.0
+- `requirements-patched.txt` — Transformers 5.3.0
+
+**Commands:**
+
+```bash
+cd src/detection
+
+pip-audit --no-deps --disable-pip -r requirements-vulnerable.txt
+
+pip-audit --no-deps --disable-pip -r requirements-patched.txt
+```
+
+**Observed results using pip-audit 2.10.1:**
+
+| Transformers Version | Reported Vulnerability Entries |
+|---|---|
+| 5.2.0 | 6 |
+| 5.3.0 | 3 |
+
+The patched version showed three fewer vulnerability entries. However, Transformers 5.3.0 still had other reported vulnerabilities. These audit results may change as advisory databases are updated.
+
+The audit identifies published dependency vulnerabilities; it does not independently demonstrate exploitability.
+
+### 6.4 Automated Testing
+
+**File:** `src/detection/test_detection.py`
+
+Eight unit tests were implemented using Python's built-in `unittest` framework.
+
+**Test coverage:**
+
+1. Benign configuration
+2. Suspicious attention implementation field
+3. Nested attention implementation field
+4. Experts implementation field
+5. `auto_map` field
+6. `custom_pipelines` field
+7. Invalid JSON
+8. Missing configuration file
+
+**Run tests:**
+
+```bash
+cd src/detection
+python3 -m unittest -v test_detection.py
+```
+
+**Observed result:**
+
+```text
+Ran 8 tests
+
+OK
+```
+
+All eight tests passed in an isolated Python 3.12 Docker environment.
+
+### 6.5 Limitations and Integration
+
+- Static detection identifies predefined configuration fields but does not confirm remote code execution.
+- Legitimate configurations may contain monitored fields, resulting in warnings.
+- The scanner does not currently validate every possible attention implementation value.
+- Dependency version-classification tests were performed using simulated package metadata.
+- The tests use synthetic configuration files rather than a reproduced exploit.
+- Validation against the Attack component's actual configuration is pending.
+
+**Integration with other components:**
+
+1. **Attack:** Supplies a controlled malicious model configuration.
+2. **Detection:** Scans the configuration and reports potential security risks.
+3. **Defence:** Evaluates whether the security controls prevent unsafe model loading.
+
+This enables comparison of attack behaviour, detection findings, and defensive effectiveness using the same test configuration.
+
