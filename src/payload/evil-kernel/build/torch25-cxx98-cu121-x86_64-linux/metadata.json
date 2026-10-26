@@ -1,0 +1,12 @@
+{
+  "id": "evil_kernel",
+  "name": "evil_kernel",
+  "version": 1,
+  "license": "MIT",
+  "backend": {
+    "type": "cuda"
+  },
+  "digest": {
+    "files": {}
+  }
+}
